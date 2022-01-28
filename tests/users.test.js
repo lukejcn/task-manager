@@ -1,26 +1,10 @@
 const request = require('supertest')
-const jwt = require('jsonwebtoken')
 const mongoose = require('mongoose')
 const app = require('../src/app')
 const User = require('../src/models/user')
-const { JsonWebTokenError } = require('jsonwebtoken')
+const { baseUser, baseUserId, setupDatabase } = require('./fixtures/db')
 
-const baseUserId = new mongoose.Types.ObjectId()
-const baseUser = {
-    _id: baseUserId,
-    name: 'George Giraffe',
-    email: 'george.giraffe@example.com',
-    age: 29,
-    password: 'P@55word!',
-    tokens: [{
-        token: jwt.sign({ _id: baseUserId }, process.env.JWT_SECRET)
-    }]
-}
-
-beforeEach(async () => {
-    await User.deleteMany()
-    await new User(baseUser).save()
-})
+beforeEach(setupDatabase)
 
 jest.mock('../config/azureEmails')
 
@@ -111,14 +95,14 @@ test('Delete Account', async () => {
     await request(app)
         .delete('/api/users/me')
         .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
-        .send({disableEmail: true})
+        .send({ disableEmail: true })
         .expect(200)
     // Check deleted from DB
     const user = await User.findById(baseUserId)
     expect(user).toBeNull
 })
 
-test('Preventing delete account when not authorized', async () => {
+test('Prevent delete if not authorized', async () => {
     await request(app)
         .delete('/api/users/me')
         .send()
@@ -126,4 +110,41 @@ test('Preventing delete account when not authorized', async () => {
     // Check still in DB
     const user = await User.findById(baseUserId)
     expect(user._id).toStrictEqual(baseUserId)
+})
+
+test('User avatar upload', async () => {
+    await request(app)
+        .post('/api/users/me/avatar')
+        .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+        .attach('avatar', 'tests/fixtures/profile-pic.jpg')
+        .expect(200)
+
+    // Check file exists on DB
+    const user = await User.findById(baseUserId)
+    expect(user.avatar).toEqual(expect.any(Buffer)) // Checks that the avatar is a Buffer
+})
+
+test('Updates user fields', async () => {
+    await request(app)
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+        .send({
+            age: 6
+        })
+        .expect(200)
+    // Check the Database:
+    const user = await User.findById(baseUserId)
+    expect(user.age).toStrictEqual(6)
+})
+
+test('Prohibit updating credentials', async () => {
+    await request(app)
+    .patch('/api/users/me')
+    .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+    .send({
+        credentials: {
+            password: 'N3wP@55word!'
+        }
+    })
+    .expect(403)
 })
