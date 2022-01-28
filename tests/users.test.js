@@ -2,7 +2,7 @@ const request = require('supertest')
 const mongoose = require('mongoose')
 const app = require('../src/app')
 const User = require('../src/models/user')
-const { baseUser, baseUserId, setupDatabase } = require('./fixtures/db')
+const { userOne, userOneId, setupDatabase } = require('./fixtures/db')
 
 beforeEach(setupDatabase)
 
@@ -39,12 +39,12 @@ test('Create a new user', async () => {
 test('Login existing user', async () => {
     const response = await request(app).post('/api/users/login')
         .send({
-            email: baseUser.email,
-            password: baseUser.password
+            email: userOne.email,
+            password: userOne.password
         })
         .expect(200)
 
-    const dbUser = await User.findById(baseUserId)
+    const dbUser = await User.findById(userOneId)
 
     // Check new auth token added
     expect(response.body.token).toBe(dbUser.tokens[1].token)
@@ -54,8 +54,8 @@ test('Login existing user', async () => {
 test('Login with incorrect Email address', async () => {
     await request(app).post('/api/users/login')
         .send({
-            email: baseUser.password + 'wrong',
-            password: baseUser.password
+            email: userOne.password + 'wrong',
+            password: userOne.password
         })
         .expect(401)
 })
@@ -63,7 +63,7 @@ test('Login with incorrect Email address', async () => {
 test('Login with incorrect Password', async () => {
     await request(app).post('/api/users/login')
         .send({
-            email: baseUser.email,
+            email: userOne.email,
             password: 'wrong'
         })
         .expect(401)
@@ -72,7 +72,7 @@ test('Login with incorrect Password', async () => {
 test('Fetch user profile', async () => {
     await request(app)
         .get('/api/users/me')
-        .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
         .send()
         .expect(200)
 })
@@ -94,11 +94,11 @@ test('No Auth Token', async () => {
 test('Delete Account', async () => {
     await request(app)
         .delete('/api/users/me')
-        .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
         .send({ disableEmail: true })
         .expect(200)
     // Check deleted from DB
-    const user = await User.findById(baseUserId)
+    const user = await User.findById(userOneId)
     expect(user).toBeNull
 })
 
@@ -108,39 +108,39 @@ test('Prevent delete if not authorized', async () => {
         .send()
         .expect(401)
     // Check still in DB
-    const user = await User.findById(baseUserId)
-    expect(user._id).toStrictEqual(baseUserId)
+    const user = await User.findById(userOneId)
+    expect(user._id).toStrictEqual(userOneId)
 })
 
 test('User avatar upload', async () => {
     await request(app)
         .post('/api/users/me/avatar')
-        .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
         .attach('avatar', 'tests/fixtures/profile-pic.jpg')
         .expect(200)
 
     // Check file exists on DB
-    const user = await User.findById(baseUserId)
+    const user = await User.findById(userOneId)
     expect(user.avatar).toEqual(expect.any(Buffer)) // Checks that the avatar is a Buffer
 })
 
 test('Updates user fields', async () => {
     await request(app)
         .patch('/api/users/me')
-        .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+        .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
         .send({
             age: 6
         })
         .expect(200)
     // Check the Database:
-    const user = await User.findById(baseUserId)
+    const user = await User.findById(userOneId)
     expect(user.age).toStrictEqual(6)
 })
 
 test('Prohibit updating credentials', async () => {
     await request(app)
     .patch('/api/users/me')
-    .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+    .set('Authorization', `Bearer ${userOne.tokens[0].token}`)
     .send({
         credentials: {
             password: 'N3wP@55word!'
