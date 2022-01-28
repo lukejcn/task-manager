@@ -13,7 +13,8 @@ const baseUser = {
     password: 'P@55word!',
     tokens: [{
         token: jwt.sign({ _id: baseUserId }, process.env.JWT_SECRET)
-    }]
+    }],
+    disableEmail: true
 }
 
 beforeEach(async () => {
