@@ -29,7 +29,8 @@ test('Create a new user', async () => {
             name: 'Pretty Penguin',
             email: 'pretty.penguin@example.com',
             age: 4,
-            password: 'Pr3ttyP3ngu!n'
+            password: 'Pr3ttyP3ngu!n',
+            disableEmail: true
         })
         .expect(201)
 
@@ -110,7 +111,7 @@ test('No Auth Token', async () => {
 //     await request(app)
 //         .delete('/api/users/me')
 //         .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
-//         .send()
+//         .send({disableEmail: true})
 //         .expect(200)
 // })
 

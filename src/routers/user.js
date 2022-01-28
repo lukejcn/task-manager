@@ -12,7 +12,7 @@ router.post('/api/users', async (req, res) => {
         const user = await new User(req.body)
         await user.save()
         const token = await user.generateAuthToken()
-        sendEmail.welcomeEmail(user.email, user.name)
+        if (!req.body.disableEmail) { sendEmail.welcomeEmail(user.email, user.name) }
         res.status(201).send({ user, token })
     } catch (e) {
         res.status(400).send(e.message)
@@ -74,7 +74,7 @@ router.patch('/api/users/me', auth, async (req, res) => {
 router.delete('/api/users/me', auth, async (req, res) => {
     try {
         await req.user.remove()
-        sendEmail.goodbyeEmail(req.user.email, req.user.name)
+        if (!req.body.disableEmail) { sendEmail.goodbyeEmail(req.user.email, req.user.name) }
         return res.send(`Your user account has been deleted`)
     } catch (e) { res.status(500).send(e) }
 })
