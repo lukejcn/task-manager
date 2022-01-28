@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken')
 const mongoose = require('mongoose')
 const app = require('../src/app')
 const User = require('../src/models/user')
+const { JsonWebTokenError } = require('jsonwebtoken')
 
 const baseUserId = new mongoose.Types.ObjectId()
 const baseUser = {
@@ -13,14 +14,15 @@ const baseUser = {
     password: 'P@55word!',
     tokens: [{
         token: jwt.sign({ _id: baseUserId }, process.env.JWT_SECRET)
-    }],
-    disableEmail: true
+    }]
 }
 
 beforeEach(async () => {
     await User.deleteMany()
     await new User(baseUser).save()
 })
+
+jest.mock('../config/azureEmails')
 
 afterAll(() => mongoose.connection.close())
 
@@ -30,11 +32,9 @@ test('Create a new user', async () => {
             name: 'Pretty Penguin',
             email: 'pretty.penguin@example.com',
             age: 4,
-            password: 'Pr3ttyP3ngu!n',
-            disableEmail: true
+            password: 'Pr3ttyP3ngu!n'
         })
         .expect(201)
-
     // Check user was created on the database
     const dbUser = await User.findById(response.body.user._id)
     expect(dbUser).not.toBeNull()
@@ -60,11 +60,10 @@ test('Login existing user', async () => {
         })
         .expect(200)
 
-    const dbUser = await User.findById(response.body.user._id)
+    const dbUser = await User.findById(baseUserId)
 
     // Check new auth token added
-    expect(response.token).toBe(dbUser.token)
-    // expect(response.token).toBe(dbUser.tokens[1].token)
+    expect(response.body.token).toBe(dbUser.tokens[1].token)
 
 })
 
@@ -108,17 +107,23 @@ test('No Auth Token', async () => {
         .expect(401)
 })
 
-// test('Delete Account', async () => {
-//     await request(app)
-//         .delete('/api/users/me')
-//         .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
-//         .send({disableEmail: true})
-//         .expect(200)
-// })
+test('Delete Account', async () => {
+    await request(app)
+        .delete('/api/users/me')
+        .set('Authorization', `Bearer ${baseUser.tokens[0].token}`)
+        .send({disableEmail: true})
+        .expect(200)
+    // Check deleted from DB
+    const user = await User.findById(baseUserId)
+    expect(user).toBeNull
+})
 
-// test('Preventing delete account when not authorized', async () => {
-//     await request(app)
-//         .delete('/api/users/me')
-//         .send()
-//         .expect(401)
-// })
+test('Preventing delete account when not authorized', async () => {
+    await request(app)
+        .delete('/api/users/me')
+        .send()
+        .expect(401)
+    // Check still in DB
+    const user = await User.findById(baseUserId)
+    expect(user._id).toStrictEqual(baseUserId)
+})
